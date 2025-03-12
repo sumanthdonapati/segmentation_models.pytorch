@@ -343,8 +343,9 @@ class FashionWorkflow:
             )
             input_mask = get_value_at_index(imagetomask_248, 0)
                 
-            if save_images:
-                self.save_image(input_mask, os.path.join(output_dir, "input_mask.png"))
+            # if save_images:
+            #     self.save_image(input_mask, os.path.join(output_dir, "input_mask.png"))
+            self.save_image(input_mask, "input_mask.png")
         
         # Move these definitions outside the else block, before the reference image check
         # Set up text prompts
@@ -411,6 +412,7 @@ class FashionWorkflow:
                 device="auto",
                 mask=input_mask,
             )
+            inpaintcrop_mask = input_mask
             loadimage_24 = self.loadimage.load_image(image=reference_image)
             rgba_image = get_value_at_index(loadimage_24, 0)
         else:
@@ -430,6 +432,7 @@ class FashionWorkflow:
                 device="auto",
                 mask=get_value_at_index(groundingdinosamsegment_segment_anything_96, 1),
             )
+            inpaintcrop_mask = get_value_at_index(maskblur_413, 0)
             rgba_image = get_value_at_index(groundingdinosamsegment_segment_anything_96, 0)
 
         print("rgba shape:", rgba_image.shape)
@@ -461,7 +464,7 @@ class FashionWorkflow:
             max_height=768,
             padding=32,
             image=get_value_at_index(layerutility_imageremovealpha_100, 0),
-            mask=get_value_at_index(maskblur_413, 0),
+            mask=inpaintcrop_mask,
         )
 
 
