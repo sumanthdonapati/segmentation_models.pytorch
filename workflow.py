@@ -572,7 +572,10 @@ class FashionWorkflow:
                 reference_img = get_value_at_index(vaedecode_420, 0)
 
         # Segment the clothing in the reference image
-        if not reference_mask:
+        if reference_mask:
+            inpaintcrop_101_mask = input_mask
+            
+        else:
             groundingdinosam2segment_segment_anything2_404 = self.groundingdinosam2segment_segment_anything2.main(
                 prompt="clothes,dress,strips,lace",
                 threshold=0.25,
@@ -582,9 +585,7 @@ class FashionWorkflow:
                 ),
                 image=reference_img,
             )
-            inpaintcrop_101_mask = get_value_at_index(groundingdinosam2segment_segment_anything2_404, 1)
-        else:
-            inpaintcrop_101_mask = input_mask
+            inpaintcrop_101_mask = get_value_at_index(groundingdinosam2segment_segment_anything2_404, 1)            
 
         # Crop for inpainting the reference image
         inpaintcrop_101 = self.inpaintcrop.inpaint_crop(
