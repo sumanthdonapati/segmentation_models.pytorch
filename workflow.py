@@ -404,36 +404,23 @@ class FashionWorkflow:
             image=get_value_at_index(easy_imagerembg_428, 0),
         )
 
-        # Use provided mask or generate one with segmentation
-        if reference_mask:
-            # Resize the provided mask to match the input image
-            maskblur_413 = self.maskblur.execute(
-                amount=6,
-                device="auto",
-                mask=input_mask,
-            )
-            inpaintcrop_mask = input_mask
-            loadimage_24 = self.loadimage.load_image(image=reference_image)
-            rgba_image = get_value_at_index(loadimage_24, 0)
-        else:
-            # Segment the image if no mask is provided
-            groundingdinosamsegment_segment_anything_96 = self.groundingdinosamsegment_segment_anything.main(
-                prompt=prompt_clothing,
-                threshold=0.2,
-                sam_model=get_value_at_index(self.sammodelloader_segment_anything_11, 0),
-                grounding_dino_model=get_value_at_index(
-                    self.groundingdinomodelloader_segment_anything_10, 0
-                ),
-                image=get_value_at_index(imageresize_97, 0),
-            )
-            # Blur the mask
-            maskblur_413 = self.maskblur.execute(
-                amount=6,
-                device="auto",
-                mask=get_value_at_index(groundingdinosamsegment_segment_anything_96, 1),
-            )
-            inpaintcrop_mask = get_value_at_index(maskblur_413, 0)
-            rgba_image = get_value_at_index(groundingdinosamsegment_segment_anything_96, 0)
+        groundingdinosamsegment_segment_anything_96 = self.groundingdinosamsegment_segment_anything.main(
+            prompt=prompt_clothing,
+            threshold=0.2,
+            sam_model=get_value_at_index(self.sammodelloader_segment_anything_11, 0),
+            grounding_dino_model=get_value_at_index(
+                self.groundingdinomodelloader_segment_anything_10, 0
+            ),
+            image=get_value_at_index(imageresize_97, 0),
+        )
+        # Blur the mask
+        maskblur_413 = self.maskblur.execute(
+            amount=6,
+            device="auto",
+            mask=get_value_at_index(groundingdinosamsegment_segment_anything_96, 1),
+        )
+        inpaintcrop_mask = get_value_at_index(maskblur_413, 0)
+        rgba_image = get_value_at_index(groundingdinosamsegment_segment_anything_96, 0)
 
         print("rgba shape:", rgba_image.shape)
         print("mask shape:", get_value_at_index(maskblur_413, 0).shape)
