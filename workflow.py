@@ -585,15 +585,19 @@ class FashionWorkflow:
                 reference_img = get_value_at_index(vaedecode_420, 0)
 
         # Segment the clothing in the reference image
-        groundingdinosam2segment_segment_anything2_404 = self.groundingdinosam2segment_segment_anything2.main(
-            prompt="clothes,dress,strips,lace",
-            threshold=0.25,
-            sam_model=get_value_at_index(self.sam2modelloader_segment_anything2_403, 0),
-            grounding_dino_model=get_value_at_index(
-                self.groundingdinomodelloader_segment_anything2_405, 0
-            ),
-            image=reference_img,
-        )
+        if not reference_mask:
+            groundingdinosam2segment_segment_anything2_404 = self.groundingdinosam2segment_segment_anything2.main(
+                prompt="clothes,dress,strips,lace",
+                threshold=0.25,
+                sam_model=get_value_at_index(self.sam2modelloader_segment_anything2_403, 0),
+                grounding_dino_model=get_value_at_index(
+                    self.groundingdinomodelloader_segment_anything2_405, 0
+                ),
+                image=reference_img,
+            )
+            inpaintcrop_101_mask = get_value_at_index(groundingdinosam2segment_segment_anything2_404, 1)
+        else:
+            inpaintcrop_101_mask = input_mask
 
         # Crop for inpainting the reference image
         inpaintcrop_101 = self.inpaintcrop.inpaint_crop(
@@ -614,7 +618,7 @@ class FashionWorkflow:
             max_height=768,
             padding=32,
             image=reference_img,
-            mask=get_value_at_index(groundingdinosam2segment_segment_anything2_404, 1),
+            mask=inpaintcrop_101_mask,
         )
 
         # Fix the reduxadvanced_162 node based on workflow_og.py
