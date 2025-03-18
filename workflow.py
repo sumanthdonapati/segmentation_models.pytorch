@@ -240,7 +240,7 @@ class DataWhisper:
                 model_name="4x-UltraSharp.pth"
             )
             self.unetloader_24 = self.unetloader.load_unet(
-                unet_name="FLUX1/flux1-dev-fp8.safetensors",
+                unet_name="FLUX1/flux1-dev-fp8.safetensors", 
                 weight_dtype="fp8_e4m3fn"
             )
             self.loraloadermodelonly_4 = self.loraloadermodelonly.load_lora_model_only(
@@ -281,11 +281,11 @@ class DataWhisper:
                 control_net_name="SDXL/controlnet-union-sdxl-1.0/diffusion_pytorch_model_promax.safetensors"
             )
             self.setunioncontrolnettype_294 = self.setunioncontrolnettype.set_controlnet_type(
-                type="depth",
+                type="depth", 
                 control_net=get_value_at_index(self.controlnetloader_48, 0)
             )
             self.setshakkerlabsunioncontrolnettype_258 = self.setshakkerlabsunioncontrolnettype.set_controlnet_type(
-                type="canny",
+                type="canny", 
                 control_net=get_value_at_index(self.controlnetloader_48, 0)
             )
 
@@ -294,9 +294,9 @@ class DataWhisper:
                 self.lora_mapped_prompts = json.load(file)
             with open("segment_maps.json", 'r') as file:
                 self.segment_maps = json.load(file)
-
+         
     def crop_inpaint_func(self, lora_name, lora_prompt):
-
+        
         lora_name = lora_name
         lora_prompt = lora_prompt
         loadimage_37 = self.loadimage.load_image(
@@ -306,16 +306,26 @@ class DataWhisper:
         imagetomask_54 = self.imagetomask.image_to_mask(
             channel="red", image=get_value_at_index(loadimage_44, 0)
         )
-        # inpaintresize_4 = self.inpaintresize.inpaint_resize(
-        #     rescale_algorithm="bicubic",
-        #     mode="ensure minimum size",
-        #     min_width=768,
-        #     min_height=768,
-        #     rescale_factor=1,
-        #     image=get_value_at_index(loadimage_37, 0),
-        #     mask=get_value_at_index(imagetomask_54, 0),
-        # )
-
+        image_tensor = get_value_at_index(imagetomask_54, 0)
+        mask_tensor = get_value_at_index(imagetomask_54, 0)
+        print('image tensor size:',image_tensor.shape)
+        print('mask tensor size:',mask_tensor.shape)
+        try:
+            inpaintresize_4 = self.inpaintresize.inpaint_resize(
+                rescale_algorithm="bicubic",
+                mode="ensure minimum size",
+                min_width=1024,
+                min_height=1024,
+                rescale_factor=1,
+                image=get_value_at_index(loadimage_37, 0),
+                mask=get_value_at_index(imagetomask_54, 0),
+            )
+            inpaintcrp_image = get_value_at_index(inpaintresize_4, 0)
+            inpaintcrp_mask = get_value_at_index(inpaintresize_4, 1)
+        except Exception as e:
+            print(f"Error in inpaintresize: {e}")
+            inpaintcrp_image = image_tensor
+            inpaintcrp_mask = mask_tensor
         inpaintcrop_3 = self.inpaintcrop.inpaint_crop(
             context_expand_pixels=351,
             context_expand_factor=1,
@@ -333,15 +343,15 @@ class DataWhisper:
             max_width=768,
             max_height=768,
             padding=32,
-            image=get_value_at_index(loadimage_44, 0),
-            mask=get_value_at_index(imagetomask_54, 0),
+            image=inpaintcrp_image,
+            mask=inpaintcrp_mask,
         )
-
+        
         vaeencode_9 = self.vaeencode.encode(
             pixels=get_value_at_index(inpaintcrop_3, 1),
             vae=get_value_at_index(self.vaeloader_22, 0),
         )
-
+        
         #lora_name
         load_lora_33 = self.load_lora.load_lora(
             lora_name=f"Furniture lora/{lora_name}.safetensors",
@@ -431,22 +441,22 @@ class DataWhisper:
             stitch=get_value_at_index(inpaintcrop_3, 0),
             inpainted_image=get_value_at_index(vaedecode_5, 0),
         )
-
+        
         for res in inpaintstitch_7[0]:
             img = Image.fromarray(np.clip(255. * res.detach().cpu().numpy().squeeze(), 0, 255).astype(np.uint8))
         img.save("ComfyUI/input/inpaint_image.png")
         return img
-
+    
     @torch.inference_mode()
     def upscale_image(self):
         # Load and encode initial image and text
         loadimage_17 = self.loadimage.load_image(image="inpaint_image.png")
-
+        
         cliptextencode_83 = self.cliptextencode.encode(
             text="masterpiece, best quality, highres",
             clip=get_value_at_index(self.cr_apply_lora_stack_14, 1),
         )
-
+        
         cliptextencode_7 = self.cliptextencode.encode(
             text="(worst quality, low quality, normal quality:2) embedding:JuggernautNegative-neg, ",
             clip=get_value_at_index(self.cr_apply_lora_stack_14, 1),
@@ -470,7 +480,7 @@ class DataWhisper:
             positive=get_value_at_index(cliptextencode_83, 0),
             negative=get_value_at_index(cliptextencode_7, 0),
         )
-
+        
         frombasicpipe_21 = self.frombasicpipe.doit(
             basic_pipe=get_value_at_index(tobasicpipe_24, 0)
         )
@@ -517,7 +527,7 @@ class DataWhisper:
             pixels=get_value_at_index(imagescaleby_54, 0),
             vae=get_value_at_index(frombasicpipe_36, 2),
         )
-
+        
         # Apply tiled diffusion and FreeU
         tileddiffusion_44 = self.tileddiffusion.apply(
             method="MultiDiffusion",
@@ -555,11 +565,11 @@ class DataWhisper:
             samples=get_value_at_index(ksampler_45, 0),
             vae=get_value_at_index(frombasicpipe_36, 2),
         )
-
+        
         for res in vaedecodetiled_48[0]:
             img = Image.fromarray(np.clip(255. * res.detach().cpu().numpy().squeeze(), 0, 255).astype(np.uint8))
         return [img]
-
+    
     @torch.inference_mode()
     def sketch2image(self, prompt):
         loadimage_295 = self.loadimage.load_image(image="sketch_image.png")
@@ -648,12 +658,12 @@ class DataWhisper:
         for res in vaedecode_8[0]:
             img = Image.fromarray(np.clip(255. * res.detach().cpu().numpy().squeeze(), 0, 255).astype(np.uint8))
             # img.save('sketch2final2.png')
-
+        
         return img
-
+       
     @torch.inference_mode()
     def create_mask(self, lora_name):
-
+        
         segment_word = self.segment_maps[lora_name]
         all_words = 'bed, chair, lamp, side table, lamp, books, flowers, vase'
         other_words = all_words.replace(segment_word,'')
@@ -662,7 +672,7 @@ class DataWhisper:
         loadimage_51 = self.loadimage.load_image(
             image="inpaint_image.png"
         )
-
+        
         yoloworld_esam_detectorprovider_zho_47 = (
             self.yoloworld_esam_detectorprovider_zho.doit(
                 categories=segment_word,
@@ -782,7 +792,7 @@ class DataWhisper:
         #     if len(separate_mask_components_43[0]) == 0:
         #         final_image = subtractmask_59
         #     else:
-        #         final_image = separate_mask_components_43
+        #         final_image = separate_mask_components_43  
         # else:
         separate_mask_components_44 = self.separate_mask_components.separate(
             mask=get_value_at_index(maskfix_56, 0)
@@ -791,37 +801,37 @@ class DataWhisper:
             final_image = maskfix_56
         else:
             final_image = separate_mask_components_44
-
+                
         return final_image
-
+        
     @torch.inference_mode()
     def __call__(self, *args,  **kwargs):
         pre_start = time.time()
         prompt = kwargs.get('prompt', "A cozy, modern bedroom...")
         prompt = prompt + ", high quality, 4k, HD"
         upscale = kwargs.get('upscale',False)
-
+        
         # Get all loras mentioned in the prompt
         all_loras = list(self.lora_mapped_prompts.keys())
         mentioned_loras = [lora for lora in all_loras if lora.lower() in prompt.lower()]
-
+        
         # Define the desired order of furniture types based on segment_maps.json
         furniture_order = ['bed', 'chair', 'side table', 'table', 'bench','lamp']
-
+        
         # Automatically create furniture groups based on segment_maps, maintaining order
         furniture_groups = {}
         # First initialize all possible furniture types in order
         for furniture_type in furniture_order:
             furniture_groups[furniture_type] = []
-
+            
         # Then populate with mentioned loras
         for lora in mentioned_loras:
             furniture_type = self.segment_maps[lora]
             furniture_groups[furniture_type].append(lora)
-
+            
         # Remove empty furniture groups
         furniture_groups = {k: v for k, v in furniture_groups.items() if v}
-
+        
         print("Furniture groups detected:", {k: len(v) for k, v in furniture_groups.items()})
         # Generate initial sketch
         print("preprocess time: ",time.time()-pre_start)
@@ -830,12 +840,12 @@ class DataWhisper:
         real_img.save("ComfyUI/input/inpaint_image.png")
         real_img.save("ComfyUI/input/s2i_image.png")
         print("sketch2image time: ", time.time()-pre_start)
-
+        
         # Process each furniture group
         for furniture_type, loras in furniture_groups.items():
             mask_start = time.time()
             print(f"\nProcessing {furniture_type} group with {len(loras)} loras")
-
+            
             # If multiple furniture of same type, do similarity matching
             if len(loras) > 1:
                 mask_start=time.time()
@@ -850,17 +860,17 @@ class DataWhisper:
                         reference_images[lora] = ref_img
                     except Exception as e:
                         print(f"Warning: Could not load reference image for {lora}: {e}")
-
+                
                 # Process each mask
                 for i, mask in enumerate(masks[0]):
                     mask_array = mask.detach().cpu().numpy().squeeze()
                     if np.all(mask_array == 0):
                         continue
-
+                    
                     # Convert mask to image for comparison
                     mask_img = Image.fromarray(np.clip(255. * mask_array, 0, 255).astype(np.uint8))
                     # mask_img.save(f"test_imgs/mask_{furniture_type}_{i}.png")
-
+                    
                     # Find best matching lora for this mask
                     best_match = None
                     best_score = 0
@@ -874,9 +884,9 @@ class DataWhisper:
                         if similarity > best_score:
                             best_score = similarity
                             best_match = lora
-
+                    
                     print(f"Mask {i} best matches with {best_match} (score: {best_score:.2f})")
-
+                    
                     # Apply the matched lora
                     if best_match:
                         mask_img.save("ComfyUI/input/inpaint_mask.png")
@@ -898,28 +908,21 @@ class DataWhisper:
                     if np.all(mask_array == 0):
                         continue
                     mask_img = Image.fromarray(np.clip(255. * mask_array, 0, 255).astype(np.uint8))
-                    try:
-                        print('resizing mask to inpaint image dimensions')
-                        inpaint_image = Image.open('ComfyUI/input/inpaint_image.png')
-                        print('inpaint image size:',inpaint_image.size)
-                        print('mask image size:',mask_img.size)
-                    except Exception as e:
-                        print(f"Error printing mask size: {e}")
                     mask_img.save("ComfyUI/input/inpaint_mask.png")
                     # mask_img.save(f'test_imgs/mask_{lora}_{i}.png')
                     inpaint_start = time.time()
                     self.crop_inpaint_func(lora, self.lora_mapped_prompts[lora])
                     inpaint_end = time.time()
                     print("inpaint time:",inpaint_end-inpaint_start)
-
+            
             print(f"{furniture_type} processing time: ", time.time() - mask_start)
             torch.cuda.empty_cache()
-
+        
         if upscale:
             final_img = self.upscale_image()
         else:
             final_img = Image.open('ComfyUI/input/inpaint_image.png')
-
+        
         torch.cuda.empty_cache()
         gc.collect()
         return [final_img]
