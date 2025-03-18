@@ -901,10 +901,10 @@ class DataWhisper:
                     try:
                         print('resizing mask to inpaint image dimensions')
                         inpaint_image = Image.open('ComfyUI/input/inpaint_image.png')
-                        # Resize mask to match inpaint image dimensions
-                        mask_img = mask_img.resize(inpaint_image.size, Image.LANCZOS)
+                        print('inpaint image size:',inpaint_image.size)
+                        print('mask image size:',mask_img.size)
                     except Exception as e:
-                        print(f"Error resizing mask: {e}")
+                        print(f"Error printing mask size: {e}")
                     mask_img.save("ComfyUI/input/inpaint_mask.png")
                     # mask_img.save(f'test_imgs/mask_{lora}_{i}.png')
                     inpaint_start = time.time()
