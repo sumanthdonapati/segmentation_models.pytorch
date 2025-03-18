@@ -306,7 +306,7 @@ class DataWhisper:
         imagetomask_54 = self.imagetomask.image_to_mask(
             channel="red", image=get_value_at_index(loadimage_44, 0)
         )
-        image_tensor = get_value_at_index(imagetomask_54, 0)
+        image_tensor = get_value_at_index(loadimage_37, 0)
         mask_tensor = get_value_at_index(imagetomask_54, 0)
         print('image tensor size:',image_tensor.shape)
         print('mask tensor size:',mask_tensor.shape)
@@ -324,8 +324,8 @@ class DataWhisper:
             inpaintcrp_mask = get_value_at_index(inpaintresize_4, 1)
         except Exception as e:
             print(f"Error in inpaintresize: {e}")
-            inpaintcrp_image = image_tensor
-            inpaintcrp_mask = mask_tensor
+            inpaintcrp_image = get_value_at_index(loadimage_37, 0)
+            inpaintcrp_mask = get_value_at_index(imagetomask_54, 0)
         inpaintcrop_3 = self.inpaintcrop.inpaint_crop(
             context_expand_pixels=351,
             context_expand_factor=1,
