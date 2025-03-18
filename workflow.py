@@ -314,8 +314,8 @@ class DataWhisper:
             inpaintresize_4 = self.inpaintresize.inpaint_resize(
                 rescale_algorithm="bicubic",
                 mode="ensure minimum size",
-                min_width=1024,
-                min_height=1024,
+                min_width=512,
+                min_height=512,
                 rescale_factor=1,
                 image=get_value_at_index(loadimage_37, 0),
                 mask=get_value_at_index(imagetomask_54, 0),
