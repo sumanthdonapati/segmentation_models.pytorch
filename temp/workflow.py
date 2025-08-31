@@ -39,24 +39,56 @@ class Predictor:
         )
 
     def cleanup_gpu_memory(self):
-        """Aggressively clean up GPU memory after inference to prevent OOM errors."""
+        """Extremely aggressively clean up GPU memory after inference to prevent OOM errors."""
         if torch.cuda.is_available():
+            print("Starting aggressive GPU memory cleanup...")
+            
+            # Temporarily move model components to CPU to force GPU memory release
+            try:
+                if hasattr(self.pipe, 'transformer'):
+                    self.pipe.transformer.to('cpu')
+                if hasattr(self.pipe, 'transformer_2'):
+                    self.pipe.transformer_2.to('cpu')
+                if hasattr(self.pipe, 'vae'):
+                    self.pipe.vae.to('cpu')
+                print("Model components moved to CPU")
+            except Exception as e:
+                print(f"Error moving model to CPU: {e}")
+            
             # Clear torch compilation cache
             torch._dynamo.reset()
             
-            # Multiple rounds of cache clearing
-            for _ in range(3):
+            # Multiple aggressive rounds of cache clearing
+            for i in range(5):
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()
                 gc.collect()
+                print(f"Cleanup round {i+1}/5 completed")
             
             # Force memory release
             torch.cuda.ipc_collect()
             
+            # Move model components back to GPU
+            try:
+                if hasattr(self.pipe, 'transformer'):
+                    self.pipe.transformer.to('cuda')
+                if hasattr(self.pipe, 'transformer_2'):
+                    self.pipe.transformer_2.to('cuda')
+                if hasattr(self.pipe, 'vae'):
+                    self.pipe.vae.to('cuda')
+                print("Model components moved back to GPU")
+            except Exception as e:
+                print(f"Error moving model back to GPU: {e}")
+            
+            # Final cleanup round
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+            gc.collect()
+            
             # Log memory usage
             allocated = torch.cuda.memory_allocated() / 1024**3  # GB
             cached = torch.cuda.memory_reserved() / 1024**3  # GB
-            print(f"GPU memory after cleanup - Allocated: {allocated:.2f}GB, Cached: {cached:.2f}GB")
+            print(f"GPU memory after aggressive cleanup - Allocated: {allocated:.2f}GB, Cached: {cached:.2f}GB")
 
     def predict(
         self,
