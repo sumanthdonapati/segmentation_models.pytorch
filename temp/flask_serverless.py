@@ -29,24 +29,56 @@ print(f"Predictor load time: {load_time:.2f} seconds")
 print("PrunaPro I2V model loaded successfully!")
 
 def cleanup_gpu_memory():
-    """Aggressively clean up GPU memory to prevent OOM errors."""
+    """Extremely aggressively clean up GPU memory to prevent OOM errors."""
     if torch.cuda.is_available():
+        print("Starting Flask aggressive GPU memory cleanup...")
+        
+        # Temporarily move model components to CPU to force GPU memory release
+        try:
+            if hasattr(predictor.pipe, 'transformer'):
+                predictor.pipe.transformer.to('cpu')
+            if hasattr(predictor.pipe, 'transformer_2'):
+                predictor.pipe.transformer_2.to('cpu')
+            if hasattr(predictor.pipe, 'vae'):
+                predictor.pipe.vae.to('cpu')
+            print("Flask: Model components moved to CPU")
+        except Exception as e:
+            print(f"Flask: Error moving model to CPU: {e}")
+        
         # Clear torch compilation cache
         torch._dynamo.reset()
         
-        # Multiple rounds of cache clearing
-        for _ in range(3):
+        # Multiple aggressive rounds of cache clearing
+        for i in range(5):
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
             gc.collect()
+            print(f"Flask cleanup round {i+1}/5 completed")
         
         # Force memory release
         torch.cuda.ipc_collect()
         
+        # Move model components back to GPU
+        try:
+            if hasattr(predictor.pipe, 'transformer'):
+                predictor.pipe.transformer.to('cuda')
+            if hasattr(predictor.pipe, 'transformer_2'):
+                predictor.pipe.transformer_2.to('cuda')
+            if hasattr(predictor.pipe, 'vae'):
+                predictor.pipe.vae.to('cuda')
+            print("Flask: Model components moved back to GPU")
+        except Exception as e:
+            print(f"Flask: Error moving model back to GPU: {e}")
+        
+        # Final cleanup round
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+        gc.collect()
+        
         # Log memory usage
         allocated = torch.cuda.memory_allocated() / 1024**3  # GB
         cached = torch.cuda.memory_reserved() / 1024**3  # GB
-        print(f"Flask GPU memory after cleanup - Allocated: {allocated:.2f}GB, Cached: {cached:.2f}GB")
+        print(f"Flask GPU memory after aggressive cleanup - Allocated: {allocated:.2f}GB, Cached: {cached:.2f}GB")
 
 @torch.inference_mode()
 def segmind_i2v_generation(job):
