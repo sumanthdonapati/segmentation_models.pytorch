@@ -5,6 +5,7 @@ import gc
 import numpy as np
 import torch
 from diffusers.utils import export_to_video, load_image
+from PIL import Image
 
 from pruna_pro import PrunaProModel
 
@@ -39,56 +40,26 @@ class Predictor:
         )
 
     def cleanup_gpu_memory(self):
-        """Extremely aggressively clean up GPU memory after inference to prevent OOM errors."""
+        """Simple aggressive GPU memory cleanup."""
         if torch.cuda.is_available():
-            print("Starting aggressive GPU memory cleanup...")
-            
-            # Temporarily move model components to CPU to force GPU memory release
-            try:
-                if hasattr(self.pipe, 'transformer'):
-                    self.pipe.transformer.to('cpu')
-                if hasattr(self.pipe, 'transformer_2'):
-                    self.pipe.transformer_2.to('cpu')
-                if hasattr(self.pipe, 'vae'):
-                    self.pipe.vae.to('cpu')
-                print("Model components moved to CPU")
-            except Exception as e:
-                print(f"Error moving model to CPU: {e}")
+            print("Starting simple aggressive GPU memory cleanup...")
             
             # Clear torch compilation cache
             torch._dynamo.reset()
             
-            # Multiple aggressive rounds of cache clearing
+            # Multiple rounds of cache clearing
             for i in range(5):
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()
                 gc.collect()
-                print(f"Cleanup round {i+1}/5 completed")
             
             # Force memory release
             torch.cuda.ipc_collect()
             
-            # Move model components back to GPU
-            try:
-                if hasattr(self.pipe, 'transformer'):
-                    self.pipe.transformer.to('cuda')
-                if hasattr(self.pipe, 'transformer_2'):
-                    self.pipe.transformer_2.to('cuda')
-                if hasattr(self.pipe, 'vae'):
-                    self.pipe.vae.to('cuda')
-                print("Model components moved back to GPU")
-            except Exception as e:
-                print(f"Error moving model back to GPU: {e}")
-            
-            # Final cleanup round
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
-            gc.collect()
-            
             # Log memory usage
             allocated = torch.cuda.memory_allocated() / 1024**3  # GB
             cached = torch.cuda.memory_reserved() / 1024**3  # GB
-            print(f"GPU memory after aggressive cleanup - Allocated: {allocated:.2f}GB, Cached: {cached:.2f}GB")
+            print(f"GPU memory after simple cleanup - Allocated: {allocated:.2f}GB, Cached: {cached:.2f}GB")
 
     def predict(
         self,
@@ -115,11 +86,29 @@ class Predictor:
         else:
             width, height = 720, 1280
         
-        # Load image from input.jpg (saved by the handler)
+        # Load image from input.png (saved by the handler)
         try:
             image = load_image("input.png")
+            # Resize image to reduce memory usage - keep under 1024px
+            original_size = image.size
+            max_dimension = 1024  # Keep well under 1024
+            
+            if max(image.size) > max_dimension:
+                # Calculate new size maintaining aspect ratio
+                if image.width > image.height:
+                    new_width = max_dimension
+                    new_height = int((image.height * max_dimension) / image.width)
+                else:
+                    new_height = max_dimension
+                    new_width = int((image.width * max_dimension) / image.height)
+                
+                image = image.resize((new_width, new_height), Image.LANCZOS)
+                print(f"Image resized from {original_size} to {image.size} to reduce memory usage")
+            else:
+                print(f"Image size {original_size} is already under {max_dimension}px limit")
+                
         except Exception as e:
-            raise ValueError(f"Failed to load input.jpg: {str(e)}")
+            raise ValueError(f"Failed to load input.png: {str(e)}")
         
         max_area = height * width
         aspect_ratio = image.height / image.width
