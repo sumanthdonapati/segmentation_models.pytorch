@@ -29,12 +29,24 @@ print(f"Predictor load time: {load_time:.2f} seconds")
 print("PrunaPro I2V model loaded successfully!")
 
 def cleanup_gpu_memory():
-    """Clean up GPU memory to prevent OOM errors."""
+    """Aggressively clean up GPU memory to prevent OOM errors."""
     if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-        torch.cuda.synchronize()
-        gc.collect()
-        print("GPU memory cleaned up in flask_serverless")
+        # Clear torch compilation cache
+        torch._dynamo.reset()
+        
+        # Multiple rounds of cache clearing
+        for _ in range(3):
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+            gc.collect()
+        
+        # Force memory release
+        torch.cuda.ipc_collect()
+        
+        # Log memory usage
+        allocated = torch.cuda.memory_allocated() / 1024**3  # GB
+        cached = torch.cuda.memory_reserved() / 1024**3  # GB
+        print(f"Flask GPU memory after cleanup - Allocated: {allocated:.2f}GB, Cached: {cached:.2f}GB")
 
 @torch.inference_mode()
 def segmind_i2v_generation(job):
@@ -42,6 +54,12 @@ def segmind_i2v_generation(job):
     jsonFile = job["input"]
     body = jsonFile
     request_id = body.get("request_id", "request_id")
+    
+    # Log memory usage at request start
+    if torch.cuda.is_available():
+        allocated = torch.cuda.memory_allocated() / 1024**3  # GB
+        cached = torch.cuda.memory_reserved() / 1024**3  # GB
+        print(f"[{request_id}] GPU memory at request start - Allocated: {allocated:.2f}GB, Cached: {cached:.2f}GB")
     
     try:
         if "prompt" not in body:
