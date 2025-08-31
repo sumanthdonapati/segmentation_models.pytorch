@@ -39,12 +39,24 @@ class Predictor:
         )
 
     def cleanup_gpu_memory(self):
-        """Clean up GPU memory after inference to prevent OOM errors."""
+        """Aggressively clean up GPU memory after inference to prevent OOM errors."""
         if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
-            gc.collect()
-            print("GPU memory cleaned up")
+            # Clear torch compilation cache
+            torch._dynamo.reset()
+            
+            # Multiple rounds of cache clearing
+            for _ in range(3):
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+                gc.collect()
+            
+            # Force memory release
+            torch.cuda.ipc_collect()
+            
+            # Log memory usage
+            allocated = torch.cuda.memory_allocated() / 1024**3  # GB
+            cached = torch.cuda.memory_reserved() / 1024**3  # GB
+            print(f"GPU memory after cleanup - Allocated: {allocated:.2f}GB, Cached: {cached:.2f}GB")
 
     def predict(
         self,
@@ -57,6 +69,12 @@ class Predictor:
         seed=None,
         negative_prompt=" "
     ):
+        # Log memory usage at start
+        if torch.cuda.is_available():
+            allocated = torch.cuda.memory_allocated() / 1024**3  # GB
+            cached = torch.cuda.memory_reserved() / 1024**3  # GB
+            print(f"GPU memory at start - Allocated: {allocated:.2f}GB, Cached: {cached:.2f}GB")
+        
         generator = (
             torch.Generator("cuda").manual_seed(seed) if seed is not None else None
         )
@@ -98,8 +116,15 @@ class Predictor:
                 num_inference_steps=num_inference_steps,
                 generator=generator,
             ).frames[0]
+        
         output_dir = tempfile.mkdtemp()
         export_to_video(output_video, "output.mp4", fps=frames_per_second)
+        
+        # Explicitly delete variables to free memory
+        del output_video
+        if generator is not None:
+            del generator
+        del image
         
         # Clean up GPU memory after inference
         self.cleanup_gpu_memory()
